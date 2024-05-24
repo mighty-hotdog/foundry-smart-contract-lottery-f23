@@ -84,7 +84,7 @@ contract VRFv2FundSubscription is Script {
                 // need to provide either the address or private key for an account that has sufficient 
                 // funds to perform the transferAndCall() call
                 //vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
-                vm.startBroadcast(vm.envAddress("defaultKey_SENDER"));
+                vm.startBroadcast(vm.envAddress("SEPOLIA_TESTNET_KEY_SENDER"));
                 LinkTokenInterface(i_linkToken).transferAndCall(
                     i_vrfCoordinator,
                     diff,
