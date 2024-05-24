@@ -32,7 +32,7 @@ forge install smartcontractkit/foundry-chainlink-toolkit
 
 Clone to your local repo and build.
 ```
-git clone https://github.com/Cyfrin/foundry-smart-contract-lottery-f23
+git clone https://github.com/saracen75/foundry-smart-contract-lottery-f23
 cd foundry-smart-contract-lottery-f23
 forge build
 ```
