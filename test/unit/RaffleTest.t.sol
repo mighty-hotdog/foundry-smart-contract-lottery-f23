@@ -256,7 +256,8 @@ contract RaffleTest is Test {
     ////////////////////////////////////////////////////////////////////
     /**
      * @dev fulfillRandomWords() call for all these tests is made via the mock VRF coordinator deployed on Anvil.
-     *      On Testnet or Mainnet where Chainlink VRF exists, these test functions cannot be used.
+     *      On Testnet, Mainnet, or forked tests where Chainlink VRF exists, these test functions cannot be used 
+     *      and are skipped.
      */
     function testPerformUpkeepNotCalled(uint256 mockRequestId) public skipOnForkTest upkeepNeeded {
         vm.expectRevert("nonexistent request");
@@ -356,6 +357,9 @@ contract RaffleTest is Test {
     /////////////////////////////////////////////////////////////////////
     // This test testRaffleBalanceIsZeroAfterReset() is failing on fork.
     // WHY???!!!
+    // No reason whatsoever that right in the middle of construction, 
+    // with no input of value from anywhere, the Raffle contract should 
+    // have a non-zero balance. A forge bug?
     /*
     function testRaffleBalanceIsZeroAfterReset() public ownerCalling {
         raffle.resetRaffleForced();

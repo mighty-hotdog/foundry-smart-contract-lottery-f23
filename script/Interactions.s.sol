@@ -14,6 +14,8 @@ import {console} from "../lib/forge-std/src/Test.sol";
 //////////////////////////////////////////////////////////////////////////////////
 // VRFv2CreateSubscription      creates a new Chainlink VRF subscription and    //
 //                              returns its subId.                              //
+// VRFv2TransferSubscription    transfers an existing Chainlink VRF subscription//
+//                              from its existing owner to a new owner.         //
 // VRFv2FundSubscription        checks balance of subscription, tops it up if   //
 //                              it's too low, and returns the final balance.    //
 // VRFv2AddConsumer             adds a consumer to subscription and returns     //
@@ -25,29 +27,79 @@ import {console} from "../lib/forge-std/src/Test.sol";
  *          VRF coordinator passed in.
  */
 contract VRFv2CreateSubscription is Script {
-    address private i_vrfCoordinator;
+    address private immutable i_vrfCoordinator;
 
     constructor(address vrfCoordinator) {
         i_vrfCoordinator = vrfCoordinator;
     }
 
-    function run() external returns (uint64) {
+    function run() external returns (uint64, address) {
         return createSubscription();
     }
 
-    function createSubscription() internal returns (uint64 subId) {
+    function createSubscription() internal returns (uint64 subId, address subOwner) {
         vm.startBroadcast();
         subId = VRFCoordinatorV2Interface(i_vrfCoordinator).createSubscription();
         vm.stopBroadcast();
-        console.log("VRF Subscription created: ", subId);
-        return subId;
+        (,,subOwner,) = VRFCoordinatorV2Interface(i_vrfCoordinator).getSubscription(subId);
+        console.log("VRF Subscription created: ", i_vrfCoordinator, subOwner, subId);
+        return (subId, subOwner);
     }
 }
 
 
 /**
- *  @notice This contract/script funds the Chainlink VRF subscription using 
- *          the VRF coordinator, Link Token, and subscription ID passed in.
+ *  @notice This contract transfers an existing Chainlink VRF subscription
+ *          from its existing owner to a new owner.
+ *  @dev    The initiating function requestSubscriptionOwnerTransfer() can
+ *          only be called by the existing subscription owner.
+ *          The receiving function acceptSubscriptionOwnerTransfer() must
+ *          be called by the new subscription owner.
+ */
+contract VRFv2TransferSubscription is Script {
+    address private immutable i_vrfCoordinator;
+    address private immutable i_vrfSubOwner;
+    address private immutable i_vrfNewSubOwner;
+    uint64 private immutable i_subscriptionId;
+
+    constructor(address vrfCoordinator, address subOwner, address newOwner, uint64 subId) {
+        i_vrfCoordinator = vrfCoordinator;
+        i_vrfSubOwner = subOwner;
+        i_vrfNewSubOwner = newOwner;
+        i_subscriptionId = subId;
+    }
+
+    function run() external returns (uint64 subId, address owner, address newOwner) {
+        return transferSubscription();
+    }
+
+    function transferSubscription() internal returns (uint64 subId, address owner, address newOwner) {
+        // calling requestSubscriptionOwnerTransfer() as existing subscription owner
+        vm.startBroadcast(i_vrfSubOwner);
+        VRFCoordinatorV2Interface(i_vrfCoordinator).requestSubscriptionOwnerTransfer(
+            i_subscriptionId,
+            i_vrfNewSubOwner);
+        vm.stopBroadcast();
+
+        // calling acceptSubscriptionOwnerTransfer() as the new subscription owner
+        vm.startBroadcast(i_vrfNewSubOwner);
+        VRFCoordinatorV2Interface(i_vrfCoordinator).acceptSubscriptionOwnerTransfer(
+            i_subscriptionId);
+        vm.stopBroadcast();
+        console.log("VRF Subscription transferred: ",
+            i_vrfSubOwner, 
+            i_vrfNewSubOwner,
+            i_subscriptionId);
+        return (i_subscriptionId, i_vrfSubOwner, i_vrfNewSubOwner);
+    }
+}
+
+
+/**
+ *  @notice This contract/script funds the Chainlink VRF subscription if it
+ *          is below the minimum balance.
+ *  @dev    On Anvil, the mock fundSubscription() is called. But on Testnet or Mainnet,
+ *          the actual transferAndCall() provided by Chainlink is called instead.
  */
 contract VRFv2FundSubscription is Script {
     address private immutable i_vrfCoordinator;
@@ -81,8 +133,8 @@ contract VRFv2FundSubscription is Script {
             // on Sepolia Testnet or Eth Mainnet where Chainlink does exist, the actual funding 
             // function transferAndCall() is used
             else {
-                // need to provide either the address or private key for an account that has sufficient 
-                // funds to perform the transferAndCall() call
+                // calling transferAndCall() as a wallet/account that has sufficient funds to do the funding
+                // this wallet/account can be provided as an address or private key
                 //vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
                 vm.startBroadcast(vm.envAddress("SEPOLIA_TESTNET_KEY_SENDER"));
                 LinkTokenInterface(i_linkToken).transferAndCall(
@@ -93,18 +145,18 @@ contract VRFv2FundSubscription is Script {
                 vm.stopBroadcast();
             }
             (balance,,,) = VRFCoordinatorV2Interface(i_vrfCoordinator).getSubscription(i_subscriptionId);
-            console.log("Fund Subscription SUCCESS: ", balance);
+            console.log("Fund Subscription SUCCESS: ", i_vrfCoordinator, i_subscriptionId, balance);
             return balance;
         }
-        console.log("Fund Subscription SKIPPED: ", balance);
+        console.log("Fund Subscription SKIPPED: ", i_vrfCoordinator, i_subscriptionId, balance);
         return balance;
     }
 }
 
 
 /**
- *  @notice This contract/script adds a consumer to the Chainlink VRF subscription 
- *          using the VRF coordinator, VRF consumer, and subscription ID passed in.
+ *  @notice This contract/script adds a consumer to the Chainlink VRF subscription.
+ *  @dev    addConsumer() can only be called by the subscription owner.
  */
 contract VRFv2AddConsumer is Script {
     address private immutable i_vrfCoordinator;
@@ -122,10 +174,12 @@ contract VRFv2AddConsumer is Script {
     }
 
     function addConsumer() internal returns (bool) {
-        vm.startBroadcast();
+        // calling addConsumer() as subscription owner
+        (,,address owner,) = VRFCoordinatorV2Interface(i_vrfCoordinator).getSubscription(i_subscriptionId);
+        vm.startBroadcast(owner);
         VRFCoordinatorV2Interface(i_vrfCoordinator).addConsumer(i_subscriptionId, i_vrfConsumer);
         vm.stopBroadcast();
-        console.log("Add Consumer SUCCESS: ", i_vrfConsumer);
+        console.log("Add Consumer SUCCESS: ", i_vrfCoordinator, i_subscriptionId, i_vrfConsumer);
         return true;
     }
 }

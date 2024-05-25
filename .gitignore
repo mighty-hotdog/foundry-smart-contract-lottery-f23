@@ -21,3 +21,6 @@ docs/
 
 # Libraries
 lib/
+
+# Notes/Scratchpads
+.testnotes

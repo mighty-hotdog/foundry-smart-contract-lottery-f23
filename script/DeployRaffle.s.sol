@@ -6,7 +6,9 @@ import {Script} from "../lib/forge-std/src/Script.sol";
 //import {Script} from "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
-import {VRFv2CreateSubscription, VRFv2FundSubscription, VRFv2AddConsumer} from "./Interactions.s.sol";
+import {VRFCoordinatorV2Interface} from "../lib/foundry-chainlink-toolkit/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
+import {VRFv2CreateSubscription, VRFv2TransferSubscription, 
+        VRFv2FundSubscription, VRFv2AddConsumer} from "./Interactions.s.sol";
 import {console} from "../lib/forge-std/src/Test.sol";
 
 contract DeployRaffle is Script {
@@ -27,19 +29,28 @@ contract DeployRaffle is Script {
             uint32 vrfCallbackGasLimit
         ) = helperConfig.s_activeNetworkConfig();
 
-        // check if vrfSubscriptionId is valid, if not, create new subscription
+        // if no existing vrfSubscriptionId, create new subscription
         console.log("Create Subscription");
-        VRFv2CreateSubscription vrfV2CreateSubscription = new VRFv2CreateSubscription(
-            vrfCoordinator);
-        vrfSubscriptionId = vrfV2CreateSubscription.run();
+        if (vrfSubscriptionId == 0) {
+            console.log("No Existing Subscription. Create New Subscription");
+            VRFv2CreateSubscription vrfV2CreateSubscription = new VRFv2CreateSubscription(
+                vrfCoordinator);
+            (vrfSubscriptionId,) = vrfV2CreateSubscription.run();
+
+        }
+        // if vrfSubscriptionId exists, test if valid by calling getSubscription()
+        else {
+            (,,address subOwner,) = VRFCoordinatorV2Interface(vrfCoordinator).getSubscription(vrfSubscriptionId);
+            console.log("Subscription Exists", subOwner, vrfSubscriptionId);
+        }
 
         // check if subscription has sufficient funds, if not, fund it
         console.log("Fund Subscription");
         VRFv2FundSubscription vfrv2FundSubscription = new VRFv2FundSubscription(
-            address(vrfCoordinator), address(vrfLinkToken), vrfSubscriptionId);
+            vrfCoordinator, vrfLinkToken, vrfSubscriptionId);
         vfrv2FundSubscription.run();
 
-        // deploy the Raffle contract using the env config obtained above
+        // deploy the Raffle contract
         console.log("Deploy Raffle");
         vm.startBroadcast();
         Raffle raffle = new Raffle(
@@ -52,9 +63,9 @@ contract DeployRaffle is Script {
         vm.stopBroadcast();
 
         // add Raffle contract as consumer to the VRF subscription
-        console.log("Add Consume");
+        console.log("Add Consumer");
         VRFv2AddConsumer vrfV2AddConsumer = new VRFv2AddConsumer(
-            address(vrfCoordinator), vrfSubscriptionId, address(raffle));
+            vrfCoordinator, vrfSubscriptionId, address(raffle));
         vrfV2AddConsumer.run();
 
         // check if Automation upkeeps have been registered w/ sufficient funds
