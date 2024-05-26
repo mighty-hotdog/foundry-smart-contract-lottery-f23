@@ -4,16 +4,20 @@ pragma solidity ^0.8.18;
 
 //import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 //import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
-import {VRFCoordinatorV2Interface} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFConsumerBaseV2} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+//import {VRFCoordinatorV2Interface} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+//import {VRFConsumerBaseV2} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import {VRFConsumerBaseV2Plus} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {IVRFCoordinatorV2Plus} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFV2PlusClient} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {console} from "../lib/forge-std/src/Test.sol";
 
 /**
  * @title   A sample Raffle contract
- * @author  Joshua Ho
  * @notice  This contract creates a sample raffle.
  * @dev     Implements Chainlink VRFv2 and Chainlink Automation.
  */
-contract Raffle is VRFConsumerBaseV2 {
+//contract Raffle is VRFConsumerBaseV2 {
+contract Raffle is VRFConsumerBaseV2Plus {
     /* Errors **********************************************************/
     error Raffle__NotOwner(address caller);
     error Raffle__InvalidEntranceFeeSet();
@@ -52,7 +56,7 @@ contract Raffle is VRFConsumerBaseV2 {
     uint256 private immutable i_vrfUpkeepInterval;
     address private immutable i_vrfCoordinator;
     bytes32 private immutable i_vrfGasLane;
-    uint64 private immutable i_vrfSubscriptionId;
+    uint256 private immutable i_vrfSubscriptionId;
     uint32 private immutable i_vrfCallbackGasLimit;
     address payable[] private s_rafflePlayers;
     RaffleState private s_raffleState;
@@ -92,14 +96,15 @@ contract Raffle is VRFConsumerBaseV2 {
         uint256 interval,
         address vrfCoordinator,
         bytes32 gasLane,
-        uint64 subscriptionId,
+        uint256 subscriptionId,
         uint32 callbackGasLimit
-    ) VRFConsumerBaseV2(vrfCoordinator) {
+//    ) VRFConsumerBaseV2(vrfCoordinator) {
+    ) VRFConsumerBaseV2Plus(vrfCoordinator) {
         // Perform all revert checks 1st before doing anything that might cost gas.
-        if (entranceFee <= 0) {
+        if (entranceFee == 0) {
             revert Raffle__InvalidEntranceFeeSet();
         }
-        if (interval <= 0) {
+        if (interval == 0) {
             revert Raffle__InvalidIntervalSet();
         }
         if (vrfCoordinator == address(0)) {
@@ -111,7 +116,7 @@ contract Raffle is VRFConsumerBaseV2 {
         if (subscriptionId == 0) {
             revert Raffle__InvalidVrfSubscriptionIdSet();
         }
-        if (callbackGasLimit <= 0) {
+        if (callbackGasLimit == 0) {
             revert Raffle__InvalidVrfCallbackGasLimitSet();
         }
 
@@ -207,12 +212,27 @@ contract Raffle is VRFConsumerBaseV2 {
         emit raffleIsProcessing(block.timestamp);
 
         // request random number from Chainlink VRF
+        /* old VRFV2 interfaces
         s_vrfRequestId = VRFCoordinatorV2Interface(i_vrfCoordinator).requestRandomWords(
             i_vrfGasLane, // gas lane
             i_vrfSubscriptionId, // subscription acct in Chainlink
             VRF_REQUEST_CONFIRMATION_BLOCKS, // # of blocks for confirmation
             i_vrfCallbackGasLimit, // limits gas for getting back random number
             VRF_NUMWORDS_REQUESTED // # of random numbers to ask for
+        );
+        */
+        // new VRFV2.5 interfaces
+        s_vrfRequestId = IVRFCoordinatorV2Plus(i_vrfCoordinator).requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: i_vrfGasLane,
+                subId: i_vrfSubscriptionId,
+                requestConfirmations: VRF_REQUEST_CONFIRMATION_BLOCKS,
+                callbackGasLimit: i_vrfCallbackGasLimit,
+                numWords: VRF_NUMWORDS_REQUESTED,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+                )
+            })
         );
         emit vrfRequestMade(s_vrfRequestId, block.timestamp);
     }
@@ -228,7 +248,8 @@ contract Raffle is VRFConsumerBaseV2 {
      */
     function fulfillRandomWords(
         uint256 /* _requestId */,
-        uint256[] memory _randomWords
+        //uint256[] memory _randomWords     // old VRFV2 interface
+        uint256[] calldata _randomWords     // new VRFV2.5 interface
     ) internal override {
         // pick winner from list of all players using received random number
         uint256 indexOfWinner = _randomWords[0] % s_rafflePlayers.length;
@@ -250,6 +271,9 @@ contract Raffle is VRFConsumerBaseV2 {
         emit payoutToWinnerCompleted(winner, amountWon, block.timestamp);
 
         resetRaffle();
+        console.log("End of fulfillRandomWords()");
+        console.log("msg.sender balance: ",msg.sender.balance);
+        console.log("Raffle balance: ",address(this).balance);
     }
 
     /**
@@ -274,12 +298,12 @@ contract Raffle is VRFConsumerBaseV2 {
         // maybe return a bool to indicate cleanup success or failure?
     }
 
-    function cleanupRaffleForced() external onlyOwner {
+    function cleanupRaffleForced() external onlyOwnerMayCall {
         emit forcedCleanupInitiated(block.timestamp);
         cleanupRaffle();
     }
 
-    function resetRaffleForced() external onlyOwner {
+    function resetRaffleForced() external onlyOwnerMayCall {
         emit forcedResetInitiated(block.timestamp);
         resetRaffle();
     }
@@ -323,7 +347,7 @@ contract Raffle is VRFConsumerBaseV2 {
         return i_vrfGasLane;
     }
 
-    function getVrfSubscriptionId() external view returns (uint64) {
+    function getVrfSubscriptionId() external view returns (uint256) {
         return i_vrfSubscriptionId;
     }
 
@@ -359,7 +383,7 @@ contract Raffle is VRFConsumerBaseV2 {
         return s_lastWinner;
     }
 
-    modifier onlyOwner() {
+    modifier onlyOwnerMayCall() {
         if (msg.sender != i_raffleContractOwner) {
             revert Raffle__NotOwner(msg.sender);
         }

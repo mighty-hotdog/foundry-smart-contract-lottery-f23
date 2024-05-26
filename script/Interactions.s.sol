@@ -3,9 +3,12 @@
 pragma solidity ^0.8.18;
 
 import {Script} from "../lib/forge-std/src/Script.sol";
-import {LinkTokenInterface} from "../lib/foundry-chainlink-toolkit/src/interfaces/shared/LinkTokenInterface.sol";
-import {VRFCoordinatorV2Interface} from "../lib/foundry-chainlink-toolkit/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
-import {VRFCoordinatorV2Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+//import {LinkTokenInterface} from "../lib/foundry-chainlink-toolkit/src/interfaces/shared/LinkTokenInterface.sol";
+import {LinkTokenInterface} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/LinkTokenInterface.sol";
+//import {VRFCoordinatorV2Interface} from "../lib/foundry-chainlink-toolkit/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
+//import {VRFCoordinatorV2Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+import {IVRFCoordinatorV2Plus} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFCoordinatorV2_5Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 import {console} from "../lib/forge-std/src/Test.sol";
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -33,15 +36,15 @@ contract VRFv2CreateSubscription is Script {
         i_vrfCoordinator = vrfCoordinator;
     }
 
-    function run() external returns (uint64, address) {
+    function run() external returns (uint256, address) {
         return createSubscription();
     }
 
-    function createSubscription() internal returns (uint64 subId, address subOwner) {
+    function createSubscription() internal returns (uint256 subId, address subOwner) {
         vm.startBroadcast();
-        subId = VRFCoordinatorV2Interface(i_vrfCoordinator).createSubscription();
+        subId = IVRFCoordinatorV2Plus(i_vrfCoordinator).createSubscription();
         vm.stopBroadcast();
-        (,,subOwner,) = VRFCoordinatorV2Interface(i_vrfCoordinator).getSubscription(subId);
+        (,,,subOwner,) = IVRFCoordinatorV2Plus(i_vrfCoordinator).getSubscription(subId);
         console.log("VRF Subscription created: ", i_vrfCoordinator, subOwner, subId);
         return (subId, subOwner);
     }
@@ -60,30 +63,30 @@ contract VRFv2TransferSubscription is Script {
     address private immutable i_vrfCoordinator;
     address private immutable i_vrfSubOwner;
     address private immutable i_vrfNewSubOwner;
-    uint64 private immutable i_subscriptionId;
+    uint256 private immutable i_subscriptionId;
 
-    constructor(address vrfCoordinator, address subOwner, address newOwner, uint64 subId) {
+    constructor(address vrfCoordinator, address subOwner, address newOwner, uint256 subId) {
         i_vrfCoordinator = vrfCoordinator;
         i_vrfSubOwner = subOwner;
         i_vrfNewSubOwner = newOwner;
         i_subscriptionId = subId;
     }
 
-    function run() external returns (uint64 subId, address owner, address newOwner) {
+    function run() external returns (uint256 subId, address owner, address newOwner) {
         return transferSubscription();
     }
 
-    function transferSubscription() internal returns (uint64 subId, address owner, address newOwner) {
+    function transferSubscription() internal returns (uint256 subId, address owner, address newOwner) {
         // calling requestSubscriptionOwnerTransfer() as existing subscription owner
         vm.startBroadcast(i_vrfSubOwner);
-        VRFCoordinatorV2Interface(i_vrfCoordinator).requestSubscriptionOwnerTransfer(
+        IVRFCoordinatorV2Plus(i_vrfCoordinator).requestSubscriptionOwnerTransfer(
             i_subscriptionId,
             i_vrfNewSubOwner);
         vm.stopBroadcast();
 
         // calling acceptSubscriptionOwnerTransfer() as the new subscription owner
         vm.startBroadcast(i_vrfNewSubOwner);
-        VRFCoordinatorV2Interface(i_vrfCoordinator).acceptSubscriptionOwnerTransfer(
+        IVRFCoordinatorV2Plus(i_vrfCoordinator).acceptSubscriptionOwnerTransfer(
             i_subscriptionId);
         vm.stopBroadcast();
         console.log("VRF Subscription transferred: ",
@@ -104,10 +107,10 @@ contract VRFv2TransferSubscription is Script {
 contract VRFv2FundSubscription is Script {
     address private immutable i_vrfCoordinator;
     address private immutable i_linkToken;
-    uint64 private immutable i_subscriptionId;
+    uint256 private immutable i_subscriptionId;
 
     /* Functions */
-    constructor(address vrfCoordinator, address linkToken, uint64 subId) {
+    constructor(address vrfCoordinator, address linkToken, uint256 subId) {
         i_vrfCoordinator = vrfCoordinator;
         i_linkToken = linkToken;
         i_subscriptionId = subId;
@@ -119,7 +122,7 @@ contract VRFv2FundSubscription is Script {
 
     function fundSubscription() internal returns (uint256 balance) {
         // if subscription is not valid, getSubscription() reverts
-        (balance,,,) = VRFCoordinatorV2Interface(i_vrfCoordinator).getSubscription(i_subscriptionId);
+        (balance,,,,) = IVRFCoordinatorV2Plus(i_vrfCoordinator).getSubscription(i_subscriptionId);
         uint256 minBalance = vm.envUint("VRF_MINIMUM_BALANCE");
         uint256 diff = minBalance - balance;
         if (diff > 0) {
@@ -127,7 +130,7 @@ contract VRFv2FundSubscription is Script {
             // on Anvil where Chainlink doesn't exist, the mock function fundSubscription() is used
             if (block.chainid == vm.envUint("DEFAULT_ANVIL_CHAINID")) {
                 vm.startBroadcast();
-                VRFCoordinatorV2Mock(i_vrfCoordinator).fundSubscription(i_subscriptionId, uint96(diff));
+                VRFCoordinatorV2_5Mock(i_vrfCoordinator).fundSubscription(i_subscriptionId, uint96(diff));
                 vm.stopBroadcast();
             } 
             // on Sepolia Testnet or Eth Mainnet where Chainlink does exist, the actual funding 
@@ -144,7 +147,7 @@ contract VRFv2FundSubscription is Script {
                     );
                 vm.stopBroadcast();
             }
-            (balance,,,) = VRFCoordinatorV2Interface(i_vrfCoordinator).getSubscription(i_subscriptionId);
+            (balance,,,,) = IVRFCoordinatorV2Plus(i_vrfCoordinator).getSubscription(i_subscriptionId);
             console.log("Fund Subscription SUCCESS: ", i_vrfCoordinator, i_subscriptionId, balance);
             return balance;
         }
@@ -160,10 +163,10 @@ contract VRFv2FundSubscription is Script {
  */
 contract VRFv2AddConsumer is Script {
     address private immutable i_vrfCoordinator;
-    uint64 private immutable i_subscriptionId;
+    uint256 private immutable i_subscriptionId;
     address private immutable i_vrfConsumer;
 
-    constructor(address vrfCoordinator, uint64 subId, address vrfConsumer) {
+    constructor(address vrfCoordinator, uint256 subId, address vrfConsumer) {
         i_vrfCoordinator = vrfCoordinator;
         i_subscriptionId = subId;
         i_vrfConsumer = vrfConsumer;
@@ -175,9 +178,9 @@ contract VRFv2AddConsumer is Script {
 
     function addConsumer() internal returns (bool) {
         // calling addConsumer() as subscription owner
-        (,,address owner,) = VRFCoordinatorV2Interface(i_vrfCoordinator).getSubscription(i_subscriptionId);
+        (,,,address owner,) = IVRFCoordinatorV2Plus(i_vrfCoordinator).getSubscription(i_subscriptionId);
         vm.startBroadcast(owner);
-        VRFCoordinatorV2Interface(i_vrfCoordinator).addConsumer(i_subscriptionId, i_vrfConsumer);
+        IVRFCoordinatorV2Plus(i_vrfCoordinator).addConsumer(i_subscriptionId, i_vrfConsumer);
         vm.stopBroadcast();
         console.log("Add Consumer SUCCESS: ", i_vrfCoordinator, i_subscriptionId, i_vrfConsumer);
         return true;

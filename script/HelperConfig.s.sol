@@ -2,12 +2,11 @@
 
 pragma solidity ^0.8.18;
 
-//import {Script} from "forge-std/Script.sol";
-//import {VRFCoordinatorV2Mock} from "@chainlink/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
-//import {CreateVRFSubscription} from "./Interactions.s.sol";
 import {Script, console} from "../lib/forge-std/src/Script.sol";
-import {VRFCoordinatorV2Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
-import {LinkToken} from "../test/mocks/LinkToken.sol";
+//import {VRFCoordinatorV2Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+import {VRFCoordinatorV2_5Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+//import {LinkToken} from "../test/mocks/LinkToken.sol";
+import {MockLinkToken} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/MockLinkToken.sol";
 
 /**
  * @title   HelperConfig contract
@@ -33,7 +32,7 @@ contract HelperConfig is Script {
         uint256 automationUpkeepInterval;
         address vrfCoordinator;
         address vrfLinkToken;
-        uint64 vrfSubscriptionId;
+        uint256 vrfSubscriptionId;
         bytes32 vrfGasLane;
         uint32 vrfCallbackGasLimit;
     }
@@ -85,18 +84,18 @@ contract HelperConfig is Script {
         console.log("Assembling NetworkConfig on Sepolia...");
         console.log("raffleEntranceFee: ",i_raffleEntranceFee);
         console.log("automationUpkeepInterval: ",i_automationUpkeepInterval);
-        console.log("vrfCoordinator: ",vm.envAddress("ETH_SEPOLIA_VRFCOORDINATOR"));
+        console.log("vrfCoordinator: ",vm.envAddress("ETH_SEPOLIA_VRF_V2_5_COORDINATOR"));
         console.log("vrfLinkToken: ",vm.envAddress("ETH_SEPOLIA_LINK_TOKEN"));
-        console.log("vrfSubscriptionId: ",vm.envOr("VRF_SUBSCRIPTION_ID_ETH_SEPOLIA",uint256(0)));
-        console.log("vrfGasLane: ",vm.envString("ETH_SEPOLIA_GASLANE750"));     // need to read as string to console.log
+        console.log("vrfSubscriptionId: ",vm.envOr("VRF_V2_5_SUBSCRIPTION_ID_ETH_SEPOLIA",uint256(0)));
+        console.log("vrfGasLane: ",vm.envString("ETH_SEPOLIA_VRF_V2_5_GASLANE100"));     // need to read as string to console.log
         console.log("vrfCallbackGasLimit: ",i_vrfCallbackGasLimit);
         return NetworkConfig({
             raffleEntranceFee: i_raffleEntranceFee,
             automationUpkeepInterval: i_automationUpkeepInterval,
-            vrfCoordinator: vm.envAddress("ETH_SEPOLIA_VRFCOORDINATOR"),
+            vrfCoordinator: vm.envAddress("ETH_SEPOLIA_VRF_V2_5_COORDINATOR"),
             vrfLinkToken: vm.envAddress("ETH_SEPOLIA_LINK_TOKEN"),
-            vrfSubscriptionId: uint64(vm.envOr("VRF_SUBSCRIPTION_ID_ETH_SEPOLIA",uint256(0))),
-            vrfGasLane: vm.envBytes32("ETH_SEPOLIA_GASLANE750"),
+            vrfSubscriptionId: vm.envOr("VRF_V2_5_SUBSCRIPTION_ID_ETH_SEPOLIA",uint256(0)),
+            vrfGasLane: vm.envBytes32("ETH_SEPOLIA_VRF_V2_5_GASLANE100"),
             vrfCallbackGasLimit: i_vrfCallbackGasLimit
         });
     }
@@ -105,18 +104,18 @@ contract HelperConfig is Script {
         console.log("Assembling NetworkConfig on Mainnet...");
         console.log("raffleEntranceFee: ",i_raffleEntranceFee);
         console.log("automationUpkeepInterval: ",i_automationUpkeepInterval);
-        console.log("vrfCoordinator: ",vm.envAddress("ETH_MAINNET_VRFCOORDINATOR"));
+        console.log("vrfCoordinator: ",vm.envAddress("ETH_MAINNET_VRF_V2_5_COORDINATOR"));
         console.log("vrfLinkToken: ",vm.envAddress("ETH_MAINNET_LINK_TOKEN"));
-        console.log("vrfSubscriptionId: ",vm.envOr("VRF_SUBSCRIPTION_ID_ETH_MAINNET",uint256(0)));
-        console.log("vrfGasLane: ",vm.envString("ETH_MAINNET_GASLANE200"));     // need to read as string to console.log
+        console.log("vrfSubscriptionId: ",vm.envOr("VRF_V2_5_SUBSCRIPTION_ID_ETH_MAINNET",uint256(0)));
+        console.log("vrfGasLane: ",vm.envString("ETH_MAINNET_VRF_V2_5_GASLANE200"));    // need to read as string to console.log
         console.log("vrfCallbackGasLimit: ",i_vrfCallbackGasLimit);
         return NetworkConfig({
             raffleEntranceFee: i_raffleEntranceFee,
             automationUpkeepInterval: i_automationUpkeepInterval,
-            vrfCoordinator: vm.envAddress("ETH_MAINNET_VRFCOORDINATOR"),
+            vrfCoordinator: vm.envAddress("ETH_MAINNET_VRF_V2_5_COORDINATOR"),
             vrfLinkToken: vm.envAddress("ETH_MAINNET_LINK_TOKEN"),
-            vrfSubscriptionId: uint64(vm.envOr("VRF_SUBSCRIPTION_ID_ETH_MAINNET",uint256(0))),
-            vrfGasLane: vm.envBytes32("ETH_MAINNET_GASLANE200"),
+            vrfSubscriptionId: vm.envOr("VRF_V2_5_SUBSCRIPTION_ID_ETH_MAINNET",uint256(0)),
+            vrfGasLane: vm.envBytes32("ETH_MAINNET_VRF_V2_5_GASLANE200"),
             vrfCallbackGasLimit: i_vrfCallbackGasLimit
         });
     }
@@ -140,30 +139,32 @@ contract HelperConfig is Script {
 
         // if there is no existing Anvil config, deploy a mock VRFCoordinator and LinkToken, 
         // and use them to generate new Anvil config
-        uint96 baseFee = uint96(vm.envUint("BASE_FEE"));
-        uint96 gasPriceLink = uint96(vm.envUint("GAS_PRICE_LINK"));
+        uint96 baseFee = uint96(vm.envUint("BASE_FEE_ETH"));
+        uint96 gasPriceLink = uint96(vm.envUint("GAS_PRICE_ETH"));
+        int256 weiPerUnitLink = int256(vm.envUint("WEI_PER_UNIT_LINK"));
         vm.startBroadcast();
-        VRFCoordinatorV2Mock vrfCoordinatorV2Mock = new VRFCoordinatorV2Mock(baseFee,gasPriceLink);
-        LinkToken linkToken = new LinkToken();
+        //VRFCoordinatorV2Mock vrfCoordinatorV2Mock = new VRFCoordinatorV2Mock(baseFee,gasPriceLink);
+        VRFCoordinatorV2_5Mock vrfCoordinatorV2_5Mock = new VRFCoordinatorV2_5Mock(baseFee,gasPriceLink,weiPerUnitLink);
+        MockLinkToken linkToken = new MockLinkToken();
         vm.stopBroadcast();
         console.log("No existing NetworkConfig on Anvil...");
-        console.log("Deployed Mock VRF Coordinator on Anvil: ",address(vrfCoordinatorV2Mock));
+        console.log("Deployed Mock VRF Coordinator on Anvil: ",address(vrfCoordinatorV2_5Mock));
         console.log("Deployed Mock Link Token on Anvil: ",address(linkToken));
 
         console.log("Assembling NetworkConfig on Anvil...");
         console.log("raffleEntranceFee: ",i_raffleEntranceFee);
         console.log("automationUpkeepInterval: ",i_automationUpkeepInterval);
-        console.log("vrfCoordinator: ",address(vrfCoordinatorV2Mock));
+        console.log("vrfCoordinator: ",address(vrfCoordinatorV2_5Mock));
         console.log("vrfLinkToken: ",address(linkToken));
-        console.log("vrfSubscriptionId: ",uint64(0));
+        console.log("vrfSubscriptionId: ",0);
         console.log("vrfGasLane (not used): 0x1234");
         console.log("vrfCallbackGasLimit: ",i_vrfCallbackGasLimit);
         return NetworkConfig({
             raffleEntranceFee: i_raffleEntranceFee,
             automationUpkeepInterval: i_automationUpkeepInterval,
-            vrfCoordinator: address(vrfCoordinatorV2Mock),
+            vrfCoordinator: address(vrfCoordinatorV2_5Mock),
             vrfLinkToken: address(linkToken),
-            vrfSubscriptionId: uint64(0),
+            vrfSubscriptionId: 0,
             vrfGasLane: bytes32("0x1234"),    // doesn't matter what is put here
             vrfCallbackGasLimit: i_vrfCallbackGasLimit
         });

@@ -7,7 +7,8 @@ import {Raffle} from "../../src/Raffle.sol";
 import {Test, console} from "../../lib/forge-std/src/Test.sol";
 //import {Test} from "forge-std/Test.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {VRFCoordinatorV2Mock} from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+//import {VRFCoordinatorV2Mock} from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+import {VRFCoordinatorV2_5Mock} from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
 contract RaffleTest is Test {
     Raffle private raffle;
@@ -17,7 +18,7 @@ contract RaffleTest is Test {
     uint256 automationUpkeepInterval;
     address vrfCoordinator;
     address vrfLinkToken;
-    uint64 vrfSubscriptionId;
+    uint256 vrfSubscriptionId;
     bytes32 vrfGasLane;
     uint32 vrfCallbackGasLimit;
 
@@ -260,14 +261,15 @@ contract RaffleTest is Test {
      *      and are skipped.
      */
     function testPerformUpkeepNotCalled(uint256 mockRequestId) public skipOnForkTest upkeepNeeded {
-        vm.expectRevert("nonexistent request");
-        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(mockRequestId, address(raffle));
+        vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(mockRequestId, address(raffle));
     }
     function testWinnerSelected() public skipOnForkTest upkeepNeeded performUpkeepCalled {
         // copy out all the players before picking the winner
         address payable[] memory allPlayers = raffle.getAllPlayers();
         // picking the winner; after this function call, all players will be wiped
-        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
+        console.log("Completed fulfillRandomWords()");
         address winner = raffle.getLastWinner();
         bool winnerPicked = winner != address(0);
         bool winnerIsOneOfPlayers;
@@ -280,7 +282,7 @@ contract RaffleTest is Test {
         assert(winnerPicked && winnerIsOneOfPlayers);
     }
     function testExpectRaffleBalanceZero() public skipOnForkTest upkeepNeeded performUpkeepCalled {
-        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
         assert(address(raffle).balance == 0);
     }
     function testExpectEmitWinnerSelected() public skipOnForkTest upkeepNeeded performUpkeepCalled {
@@ -289,7 +291,7 @@ contract RaffleTest is Test {
             /* dummy winner address */ address(1),
             /* dummy block.timestamp */ 0
         );
-        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
     }
     function testExpectEmitPayoutToWinnerCompleted() public skipOnForkTest upkeepNeeded performUpkeepCalled {
         vm.expectEmit(false, true, false, false, address(raffle));
@@ -298,10 +300,10 @@ contract RaffleTest is Test {
             /* current Raffle contract balance, which is the amount won by the winner */ address(raffle).balance,
             /* dummy block.timestamp */ 0
         );
-        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
     }
     function testResetRaffleCalled() public skipOnForkTest upkeepNeeded performUpkeepCalled {
-        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(raffle.getVrfRequestId(), address(raffle));
         assert((raffle.getNumberOfPlayers() == 0) && (raffle.getRaffleState() == Raffle.RaffleState.OPEN));
     }
 

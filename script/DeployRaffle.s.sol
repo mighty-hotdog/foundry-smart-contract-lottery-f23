@@ -6,7 +6,8 @@ import {Script} from "../lib/forge-std/src/Script.sol";
 //import {Script} from "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
-import {VRFCoordinatorV2Interface} from "../lib/foundry-chainlink-toolkit/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
+//import {VRFCoordinatorV2Interface} from "../lib/foundry-chainlink-toolkit/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
+import {IVRFCoordinatorV2Plus} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFv2CreateSubscription, VRFv2TransferSubscription, 
         VRFv2FundSubscription, VRFv2AddConsumer} from "./Interactions.s.sol";
 import {console} from "../lib/forge-std/src/Test.sol";
@@ -24,7 +25,7 @@ contract DeployRaffle is Script {
             uint256 automationUpkeepInterval,
             address vrfCoordinator,
             address vrfLinkToken,
-            uint64 vrfSubscriptionId,
+            uint256 vrfSubscriptionId,
             bytes32 vrfGasLane,
             uint32 vrfCallbackGasLimit
         ) = helperConfig.s_activeNetworkConfig();
@@ -40,7 +41,8 @@ contract DeployRaffle is Script {
         }
         // if vrfSubscriptionId exists, test if valid by calling getSubscription()
         else {
-            (,,address subOwner,) = VRFCoordinatorV2Interface(vrfCoordinator).getSubscription(vrfSubscriptionId);
+            console.log("Before getSubscription()");
+            (,,,address subOwner,) = IVRFCoordinatorV2Plus(vrfCoordinator).getSubscription(vrfSubscriptionId);
             console.log("Subscription Exists", subOwner, vrfSubscriptionId);
         }
 
