@@ -25,7 +25,6 @@ To compile and run this code, you will need:
 ```
 forge install foundry-rs/forge-std --no-commit
 forge install smartcontractkit/chainlink-brownie-contracts --no-commit
-forge install smartcontractkit/foundry-chainlink-toolkit --no-commit
 
 ```
 ## Quickstart
