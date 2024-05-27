@@ -2,14 +2,14 @@
 
 pragma solidity ^0.8.18;
 
-import {Script} from "../lib/forge-std/src/Script.sol";
-//import {LinkTokenInterface} from "../lib/foundry-chainlink-toolkit/src/interfaces/shared/LinkTokenInterface.sol";
-import {LinkTokenInterface} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/LinkTokenInterface.sol";
+import {Script} from "forge-std/Script.sol";
+import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol";
+// deprecate VRF v2 interfaces and mocks in favor of VRF v2.5
 //import {VRFCoordinatorV2Interface} from "../lib/foundry-chainlink-toolkit/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
 //import {VRFCoordinatorV2Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
-import {IVRFCoordinatorV2Plus} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
-import {VRFCoordinatorV2_5Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
-import {console} from "../lib/forge-std/src/Test.sol";
+import {IVRFCoordinatorV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {console} from "forge-std/Test.sol";
 
 //////////////////////////////////////////////////////////////////////////////////
 // Chainlink VRF /////////////////////////////////////////////////////////////////

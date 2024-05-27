@@ -2,15 +2,15 @@
 
 pragma solidity ^0.8.18;
 
-import {Script} from "../lib/forge-std/src/Script.sol";
-//import {Script} from "forge-std/Script.sol";
+import {Script} from "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
+// deprecate VRF v2 interfaces in favor of VRF v2.5
 //import {VRFCoordinatorV2Interface} from "../lib/foundry-chainlink-toolkit/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
-import {IVRFCoordinatorV2Plus} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {IVRFCoordinatorV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFv2CreateSubscription, VRFv2TransferSubscription, 
         VRFv2FundSubscription, VRFv2AddConsumer} from "./Interactions.s.sol";
-import {console} from "../lib/forge-std/src/Test.sol";
+import {console} from "forge-std/Test.sol";
 
 contract DeployRaffle is Script {
     function run() external returns (Raffle, HelperConfig) {

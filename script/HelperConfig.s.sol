@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.18;
 
-import {Script, console} from "../lib/forge-std/src/Script.sol";
-//import {VRFCoordinatorV2Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
-import {VRFCoordinatorV2_5Mock} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
-//import {LinkToken} from "../test/mocks/LinkToken.sol";
-import {MockLinkToken} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/mocks/MockLinkToken.sol";
+import {Script, console} from "forge-std/Script.sol";
+// deprecate VRF v2 mocks in favor of VRF v2.5
+//import {VRFCoordinatorV2Mock} from "@chainlink/contracts/src/v0.8/mocks/VRFCoordinatorV2Mock.sol";
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {MockLinkToken} from "@chainlink/contracts/src/v0.8/mocks/MockLinkToken.sol";
 
 /**
  * @title   HelperConfig contract
